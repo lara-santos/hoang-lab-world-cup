@@ -2,21 +2,33 @@ import { createClient } from "@supabase/supabase-js";
 
 type FifaMatch = {
   id?: string;
+  IdMatch?: string;
   matchNumber?: number;
+  MatchNumber?: number;
   homeTeam?: { name?: string };
   awayTeam?: { name?: string };
   home?: { name?: string };
   away?: { name?: string };
+  Home?: { TeamName?: Array<{ Description?: string }>; ShortClubName?: string; Abbreviation?: string; Score?: number };
+  Away?: { TeamName?: Array<{ Description?: string }>; ShortClubName?: string; Abbreviation?: string; Score?: number };
   date?: string;
+  Date?: string;
   kickoff?: string;
   stage?: string;
   group?: string;
+  StageName?: Array<{ Description?: string }>;
+  GroupName?: Array<{ Description?: string }>;
   venue?: { name?: string };
+  Stadium?: { Name?: Array<{ Description?: string }> };
   status?: string;
+  MatchStatus?: number;
+  ResultType?: number;
   homeScore?: number;
   awayScore?: number;
   home_score?: number;
   away_score?: number;
+  HomeTeamScore?: number | null;
+  AwayTeamScore?: number | null;
 };
 
 type VercelRequest = {
@@ -32,7 +44,13 @@ function text(value: unknown): string | undefined {
   return typeof value === "string" ? value : undefined;
 }
 
-function normalizeStatus(status?: string) {
+function localizedName(values?: Array<{ Description?: string }>) {
+  return values?.[0]?.Description;
+}
+
+function normalizeStatus(status?: string, matchStatus?: number, resultType?: number) {
+  if (resultType === 1 || matchStatus === 0) return "finished";
+  if (matchStatus === 3 || matchStatus === 12) return "live";
   const value = status?.toLowerCase() ?? "";
   if (value.includes("finish") || value === "ft" || value === "completed") return "finished";
   if (value.includes("live") || value.includes("progress") || value.includes("half")) return "live";
@@ -46,16 +64,19 @@ function fallbackId(match: FifaMatch) {
 }
 
 function normalizeMatch(match: FifaMatch) {
+  const homeName = match.homeTeam?.name ?? match.home?.name ?? localizedName(match.Home?.TeamName) ?? match.Home?.ShortClubName;
+  const awayName = match.awayTeam?.name ?? match.away?.name ?? localizedName(match.Away?.TeamName) ?? match.Away?.ShortClubName;
+
   return {
-    id: match.id ?? fallbackId(match),
-    group_name: match.group ?? match.stage ?? "World Cup",
-    home_team: match.homeTeam?.name ?? match.home?.name ?? "TBD",
-    away_team: match.awayTeam?.name ?? match.away?.name ?? "TBD",
-    kickoff: match.kickoff ?? match.date ?? new Date().toISOString(),
-    venue: match.venue?.name ?? "TBD",
-    status: normalizeStatus(match.status),
-    home_score: match.homeScore ?? match.home_score ?? null,
-    away_score: match.awayScore ?? match.away_score ?? null,
+    id: match.id ?? match.IdMatch ?? fallbackId(match),
+    group_name: match.group ?? localizedName(match.GroupName) ?? match.stage ?? localizedName(match.StageName) ?? "World Cup",
+    home_team: homeName ?? "TBD",
+    away_team: awayName ?? "TBD",
+    kickoff: match.kickoff ?? match.date ?? match.Date ?? new Date().toISOString(),
+    venue: match.venue?.name ?? localizedName(match.Stadium?.Name) ?? "TBD",
+    status: normalizeStatus(match.status, match.MatchStatus, match.ResultType),
+    home_score: match.homeScore ?? match.home_score ?? match.HomeTeamScore ?? match.Home?.Score ?? null,
+    away_score: match.awayScore ?? match.away_score ?? match.AwayTeamScore ?? match.Away?.Score ?? null,
     updated_at: new Date().toISOString(),
   };
 }
