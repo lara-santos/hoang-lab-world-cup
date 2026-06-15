@@ -101,16 +101,22 @@ export async function loadRemoteData() {
 }
 
 export async function saveRemotePrediction(prediction: Prediction) {
-  if (!supabase) throw new Error("Supabase is not configured");
-  const { error } = await supabase.from("guest_predictions").upsert({
-    id: prediction.id,
-    match_id: prediction.matchId,
-    user_id: prediction.userId,
-    user_name: prediction.userName,
-    home_score: prediction.homeScore,
-    away_score: prediction.awayScore,
-    submitted_at: prediction.submittedAt,
+  const response = await fetch("/api/save-prediction", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      id: prediction.id,
+      match_id: prediction.matchId,
+      user_id: prediction.userId,
+      user_name: prediction.userName,
+      home_score: prediction.homeScore,
+      away_score: prediction.awayScore,
+      submitted_at: prediction.submittedAt,
+    }),
   });
 
-  if (error) throw error;
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({ error: "Prediction could not be saved" }));
+    throw new Error(payload.error ?? "Prediction could not be saved");
+  }
 }
